@@ -6,8 +6,27 @@
   <title>Samurai Restaurant - Order</title>
   <style>
     * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
-    body { max-width: 480px; margin: 0 auto; padding: 20px; background: #1a1a2e; color: #eee; }
+    body { max-width: 480px; margin: 0 auto; padding: 20px; background: #1a1a2e; color: #eee; padding-bottom: 100px; }
     h1 { text-align: center; color: #e94560; }
+
+    /* Seat input screen */
+    .seat-screen { text-align: center; padding: 40px 10px; }
+    .seat-screen h2 { color: #e94560; font-size: 24px; margin-bottom: 8px; }
+    .seat-screen p { color: #aaa; margin-bottom: 30px; }
+    .seat-screen input {
+      width: 100%; padding: 18px; font-size: 28px; text-align: center;
+      border-radius: 8px; border: 2px solid #e94560; background: #16213e;
+      color: #eee; outline: none; letter-spacing: 6px;
+    }
+    .seat-screen input:focus { border-color: #ff6b81; }
+    .seat-screen button {
+      margin-top: 16px; width: 100%; padding: 16px;
+      background: #e94560; color: white; border: none;
+      border-radius: 8px; font-size: 18px; cursor: pointer;
+    }
+    .seat-screen button:disabled { background: #555; cursor: not-allowed; }
+
+    /* Menu */
     .seat-info { text-align: center; background: #16213e; padding: 10px; border-radius: 8px; margin-bottom: 20px; }
     .category { margin-top: 20px; }
     .category h2 { color: #e94560; border-bottom: 1px solid #e94560; padding-bottom: 5px; }
@@ -25,18 +44,38 @@
     .cart button:disabled { background: #555; cursor: not-allowed; }
     .success { text-align: center; padding: 40px; }
     .success h2 { color: #4ecca3; }
+    .error-msg { color: #e94560; text-align: center; margin-top: 10px; font-size: 14px; display: none; }
   </style>
 </head>
 <body>
-  <h1>Samurai Restaurant</h1>
-  
-  <div class="seat-info">
-    <strong>Seat: <span id="seatNumber">--</span></strong>
+  <h1>🍱 Samurai Restaurant</h1>
+
+  <!-- Seat input screen -->
+  <div id="seatScreen" class="seat-screen">
+    <h2>Welcome!</h2>
+    <p>Enter your seat number to start ordering.</p>
+    <input
+      type="text"
+      id="seatInput"
+      placeholder="Seat No."
+      maxlength="5"
+      oninput="document.getElementById('seatConfirmBtn').disabled = this.value.trim() === ''"
+      onkeydown="if(event.key==='Enter') confirmSeat()"
+      autofocus
+    />
+    <button id="seatConfirmBtn" onclick="confirmSeat()" disabled>Start Ordering →</button>
   </div>
 
-  <div id="menu"></div>
+  <!-- Main menu (hidden until seat confirmed) -->
+  <div id="mainContent" style="display:none">
+    <div class="seat-info">
+      <strong>Seat: <span id="seatNumber">--</span></strong>
+    </div>
+    <div id="menu"></div>
+    <div class="error-msg" id="errorMsg">Failed to send order. Please tell a staff member.</div>
+  </div>
 
-  <div class="cart">
+  <div class="cart" id="cartBar" style="display:none">
     <div class="cart-inner">
       <div class="cart-total">Total: ¥<span id="totalPrice">0</span></div>
       <button id="submitOrder" disabled>Submit Order</button>
@@ -44,52 +83,61 @@
   </div>
 
   <script>
-    // Get seat number from URL (e.g., order.html?seat=5)
-    const params = new URLSearchParams(window.location.search);
-    const seatNumber = params.get('seat') || 'A';
-    document.getElementById('seatNumber').textContent = seatNumber;
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxjJKg1pYOgtEbkVOM2WBnO6Wnka4gLiljUUcgP6opyjenW418YaK8w9R130FIQ9hDggA/exec';
 
-    // Menu data (customize this for your restaurant)
+    let seatNumber = '';
+
+    function confirmSeat() {
+      const val = document.getElementById('seatInput').value.trim();
+      if (!val) return;
+      seatNumber = val;
+      document.getElementById('seatNumber').textContent = seatNumber;
+      document.getElementById('seatScreen').style.display = 'none';
+      document.getElementById('mainContent').style.display = 'block';
+      document.getElementById('cartBar').style.display = 'block';
+      renderMenu();
+    }
+
     const menu = {
       'Food / 食べ物': [
-        { id: 1, name: 'Doritos / ドリトス', price: 700 },
-        { id: 2, name: 'Potato Long / ポテロング', price: 700 },
-        { id: 3, name: 'Popcorn / ポップコーン', price: 700 },
-	{ id: 4, name: 'Fried Chicken　/　唐揚げ', price: 1000 },
-	{ id: 5, name: 'Sausage Bun　/　ソーセージバン', price: 1000 },
-	{ id: 6, name: 'Takoyaki　/　たこ焼き', price: 1000 },
-	{ id: 7, name: 'Grilled Rice Ball　/　焼きおにぎり', price: 1000 },
-	{ id: 8, name: 'Dafuku Ice Cream　/　大福アイスクリーム', price: 1000 },
-	{ id: 9, name: 'Ramen　/　ラーメン', price: 1500 },
-	{ id: 10, name: 'Udon　/　うどん', price: 1500 },
-	{ id: 11, name: 'BBQ', price: 2500 },
-	{ id: 12, name: 'Vegan Bowl　/　ウィガンボウル', price: 1500 },
+        { id: 1,  name: 'Doritos / ドリトス',                   price: 700  },
+        { id: 2,  name: 'Potato Long / ポテロング',              price: 700  },
+        { id: 3,  name: 'Popcorn / ポップコーン',               price: 700  },
+        { id: 4,  name: 'Fried Chicken / 唐揚げ',               price: 1000 },
+        { id: 5,  name: 'Sausage Bun / ソーセージバン',          price: 1000 },
+        { id: 6,  name: 'Takoyaki / たこ焼き',                  price: 1000 },
+        { id: 7,  name: 'Grilled Rice Ball / 焼きおにぎり',      price: 1000 },
+        { id: 8,  name: 'Dafuku Ice Cream / 大福アイスクリーム', price: 1000 },
+        { id: 9,  name: 'Ramen / ラーメン',                     price: 1500 },
+        { id: 10, name: 'Udon / うどん',                        price: 1500 },
+        { id: 11, name: 'BBQ',                                  price: 2500 },
+        { id: 12, name: 'Vegan Bowl / ウィガンボウル',           price: 1500 },
       ],
-     'Alcohol / 酒': [
-        { id: 13, name: 'Asahi Beer 350ml / アサヒビール350ml', price: 600 },
-        { id: 14, name: 'Asahi Beer 500ml / アサヒビール500ml', price: 800 },
-        { id: 15, name: 'Red Wine / 赤ワイン', price: 500 },
-        { id: 16, name: 'White Wine / 白ワイン', price: 500 },
-        { id: 17, name: 'Strong Zero Lemon / レモンサワー', price: 500 },
-        { id: 18, name: 'Strong Zero Grapefruit / グレープフルーツサワー', price: 500 },
-        { id: 19, name: 'Highball / ハイボール', price: 500 },
-	{ id: 20, name: 'Jack Daniels with Coke / コークハイ', price: 500 },
-        { id: 21, name: 'Mio Sparkling Wine / 澪', price: 500 },
-        { id: 22, name: 'Champagne / モエ ミニボトル', price: 500 },
-	{ id: 23, name: 'Japanese Sake / 日本酒2本セット', price: 3000 },
-	{ id: 24, name: 'Dokuro Bottle / ドクロボトル', price: 1000 },
+      'Alcohol / 酒': [
+        { id: 13, name: 'Asahi Beer 350ml / アサヒビール350ml',           price: 600  },
+        { id: 14, name: 'Asahi Beer 500ml / アサヒビール500ml',           price: 800  },
+        { id: 15, name: 'Red Wine / 赤ワイン',                            price: 500  },
+        { id: 16, name: 'White Wine / 白ワイン',                          price: 500  },
+        { id: 17, name: 'Strong Zero Lemon / レモンサワー',               price: 500  },
+        { id: 18, name: 'Strong Zero Grapefruit / グレープフルーツサワー', price: 500  },
+        { id: 19, name: 'Highball / ハイボール',                          price: 500  },
+        { id: 20, name: 'Jack Daniels with Coke / コークハイ',            price: 500  },
+        { id: 21, name: 'Mio Sparkling Wine / 澪',                        price: 500  },
+        { id: 22, name: 'Champagne / モエ ミニボトル',                     price: 500  },
+        { id: 23, name: 'Japanese Sake / 日本酒2本セット',                 price: 3000 },
+        { id: 24, name: 'Dokuro Bottle / ドクロボトル',                    price: 1000 },
       ],
-     'Non-Alcoholic Drinks / ノンアルコールビール': [
-        { id: 25, name: 'Coca Cola / コカコーラ', price: 500 },
-	{ id: 26, name: 'Cola Zero　/　コーラゼロ', price: 500 },
-	{ id: 27, name: 'Orange Juice　/　オレンジ', price: 500 },
-        { id: 28, name: 'Calpico　/　カルピコ', price: 500 },
-	{ id: 29, name: 'Oolong Tea　/　ウーロン茶', price: 500 },
-	{ id: 30, name: 'Green tea　/　緑茶', price: 500 },
-        { id: 31, name: 'Water　/　水', price: 500 },
-	{ id: 32, name: 'Soda　/　ソーダ', price: 500 },
-	{ id: 33, name: 'Coffee　/　コーヒー', price: 500 },
-	{ id: 34, name: 'Daruma Beer　/　達磨ビール', price: 500 },
+      'Non-Alcoholic Drinks / ノンアルコールビール': [
+        { id: 25, name: 'Coca Cola / コカコーラ',   price: 500 },
+        { id: 26, name: 'Cola Zero / コーラゼロ',   price: 500 },
+        { id: 27, name: 'Orange Juice / オレンジ',  price: 500 },
+        { id: 28, name: 'Calpico / カルピコ',       price: 500 },
+        { id: 29, name: 'Oolong Tea / ウーロン茶',  price: 500 },
+        { id: 30, name: 'Green Tea / 緑茶',         price: 500 },
+        { id: 31, name: 'Water / 水',               price: 500 },
+        { id: 32, name: 'Soda / ソーダ',            price: 500 },
+        { id: 33, name: 'Coffee / コーヒー',        price: 500 },
+        { id: 34, name: 'Daruma Beer / 達磨ビール', price: 500 },
       ],
     };
 
@@ -98,12 +146,10 @@
     function renderMenu() {
       const menuEl = document.getElementById('menu');
       menuEl.innerHTML = '';
-
       for (const [category, items] of Object.entries(menu)) {
         const catDiv = document.createElement('div');
         catDiv.className = 'category';
         catDiv.innerHTML = `<h2>${category}</h2>`;
-
         for (const item of items) {
           const qty = cart[item.id] || 0;
           const itemDiv = document.createElement('div');
@@ -141,7 +187,11 @@
       document.getElementById('submitOrder').disabled = total === 0;
     }
 
-    document.getElementById('submitOrder').addEventListener('click', () => {
+    document.getElementById('submitOrder').addEventListener('click', async () => {
+      const btn = document.getElementById('submitOrder');
+      const errorMsg = document.getElementById('errorMsg');
+      errorMsg.style.display = 'none';
+
       const items = [];
       for (const [id, qty] of Object.entries(cart)) {
         if (qty > 0) {
@@ -149,9 +199,7 @@
           if (item) items.push({ name: item.name, qty, price: item.price });
         }
       }
-
       const total = items.reduce((sum, i) => sum + i.price * i.qty, 0);
-
       const order = {
         id: Date.now(),
         seat: seatNumber,
@@ -161,25 +209,33 @@
         status: 'new'
       };
 
-      // Store order (in production, send to server instead)
-      const orders = JSON.parse(localStorage.getItem('samurai_orders') || '[]');
-      orders.push(order);
-      localStorage.setItem('samurai_orders', JSON.stringify(orders));
+      btn.textContent = 'Sending...';
+      btn.disabled = true;
 
-      // Show success
-      document.body.innerHTML = `
-        <div class="success">
-          <h2>✓ Order Submitted!</h2>
-          <p>Seat ${seatNumber}</p>
-          <p>Total: ¥${total.toLocaleString()}</p>
-          <p>Your order has been sent to the kitchen.</p>
-          <br>
-          <button onclick="location.reload()" style="background:#e94560;color:white;border:none;padding:12px 24px;border-radius:8px;cursor:pointer;">Order More</button>
-        </div>
-      `;
+      try {
+        await fetch(SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(order)
+        });
+
+        document.body.innerHTML = `
+          <div class="success">
+            <h2>✓ Order Submitted!</h2>
+            <p>Seat ${seatNumber}</p>
+            <p>Total: ¥${total.toLocaleString()}</p>
+            <p>Your order has been sent to the kitchen.</p>
+            <br>
+            <button onclick="location.reload()" style="background:#e94560;color:white;border:none;padding:12px 24px;border-radius:8px;cursor:pointer;font-size:16px;">Order More</button>
+          </div>
+        `;
+      } catch (err) {
+        btn.textContent = 'Submit Order';
+        btn.disabled = false;
+        errorMsg.style.display = 'block';
+      }
     });
-
-    renderMenu();
   </script>
 </body>
 </html>
